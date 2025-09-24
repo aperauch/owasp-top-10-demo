@@ -18,7 +18,25 @@ export default function WAFTestDashboard() {
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  const wafTester = new WAFTester();
+  // Determine the correct base URL for WAF testing
+  const getBaseUrl = () => {
+    if (typeof window === 'undefined') return ''; // SSR
+    
+    // If we're on the production domain, use HTTPS explicitly
+    if (window.location.hostname === 'owasp.aperauch.com') {
+      return 'https://owasp.aperauch.com';
+    }
+    
+    // For local development, use relative URLs (empty string)
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return '';
+    }
+    
+    // For any other domain, use the current protocol and host
+    return `${window.location.protocol}//${window.location.host}`;
+  };
+  
+  const wafTester = new WAFTester(getBaseUrl());
 
   const testSuites: TestSuite[] = [
     {
@@ -162,10 +180,13 @@ export default function WAFTestDashboard() {
           <h2 className="text-lg font-semibold text-blue-900 mb-2">
             🛡️ Comprehensive WAF Testing Suite
           </h2>
-          <p className="text-blue-800">
+          <p className="text-blue-800 mb-3">
             This dashboard runs real HTTP requests with OWASP Top 10 attack payloads to validate your Cloudflare WAF configuration. 
             Blocked requests indicate your WAF is working properly.
           </p>
+          <div className="text-sm text-blue-700 bg-blue-100 rounded px-3 py-2">
+            <strong>Testing Target:</strong> {getBaseUrl() || 'Current Domain (Relative URLs)'}
+          </div>
         </div>
       </div>
 
