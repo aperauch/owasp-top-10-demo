@@ -117,7 +117,9 @@ export class WAFTester {
     if (response.status === 406) blockedStatusCodes.push(406);
     if (response.status === 429) blockedStatusCodes.push(429);
     
-    const isBlocked = statusCodeBlocked || cloudflareServerHeader || cloudflareRayHeader;
+    // Only consider a request blocked if it has a blocking status code
+    // Cloudflare headers alone don't indicate blocking - they're present on all CF responses
+    const isBlocked = statusCodeBlocked;
     
     return {
       isBlocked,
