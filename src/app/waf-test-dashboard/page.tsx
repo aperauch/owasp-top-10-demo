@@ -136,19 +136,10 @@ export default function WAFTestDashboard() {
   const getTestStats = () => {
     const results = Object.values(testResults);
     const total = results.length;
-    // A test is considered "blocked" (good) only if it has a blocking status code or network error
-    // Status code 200 means the request reached the server and should be considered "failed" (bad)
-    const blocked = results.filter(r => 
-      r.statusCode === 403 || 
-      r.statusCode === 406 || 
-      r.statusCode === 429 ||
-      r.statusCode === 0 || // Network error/timeout
-      (r.blocked && r.statusCode !== 200) // Blocked by WAF but not a 200 response
-    ).length;
-    const failed = results.filter(r => 
-      r.statusCode === 200 || // Request reached the server - WAF failed to block
-      (r.statusCode !== 403 && r.statusCode !== 406 && r.statusCode !== 429 && r.statusCode !== 0 && !r.blocked)
-    ).length;
+    // Simple logic: if status code is 200, the WAF failed to block (bad)
+    // Any other status code or network error means WAF blocked it (good)
+    const failed = results.filter(r => r.statusCode === 200).length;
+    const blocked = results.filter(r => r.statusCode !== 200).length;
     
     return { total, blocked, failed, percentage: total > 0 ? Math.round((blocked / total) * 100) : 0 };
   };
@@ -260,15 +251,9 @@ export default function WAFTestDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {suiteTests.map((test) => {
                     const result = testResults[test.name];
-                    // A test is considered "blocked" (good) only if it has a blocking status code or network error
-                    // Status code 200 means the request reached the server and should be considered "failed" (bad)
-                    const isBlocked = result && (
-                      result.statusCode === 403 || 
-                      result.statusCode === 406 || 
-                      result.statusCode === 429 ||
-                      result.statusCode === 0 || // Network error/timeout
-                      (result.blocked && result.statusCode !== 200) // Blocked by WAF but not a 200 response
-                    );
+                    // Simple logic: if status code is 200, the WAF failed to block (bad)
+                    // Any other status code means WAF blocked it (good)
+                    const isBlocked = result && result.statusCode !== 200;
                     
                     return (
                       <div
