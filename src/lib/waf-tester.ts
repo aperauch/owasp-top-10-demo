@@ -8,6 +8,13 @@ export interface WAFTestResult {
   cloudflareRay?: string;
   error?: string;
   response?: any;
+  blockingIndicators?: {
+    statusCodeBlocked: boolean;
+    cloudflareServerHeader: boolean;
+    cloudflareRayHeader: boolean;
+    networkError: boolean;
+    statusCodes?: number[];
+  };
 }
 
 export interface WAFTestPayload {
@@ -57,7 +64,7 @@ export class WAFTester {
       const responseTime = Date.now() - startTime;
       
       // Check if request was blocked by Cloudflare WAF
-      const isBlocked = this.isCloudflareBlocked(response);
+      const blockingDetails = this.getBlockingDetails(response);
       
       let responseData;
       try {
@@ -68,39 +75,60 @@ export class WAFTester {
 
       return {
         success: response.ok,
-        blocked: isBlocked,
+        blocked: blockingDetails.isBlocked,
         statusCode: response.status,
-        message: isBlocked ? 'Request blocked by WAF' : 'Request processed by server',
+        message: blockingDetails.isBlocked ? 'Request blocked by WAF' : 'Request processed by server',
         timestamp: new Date().toISOString(),
         responseTime,
         cloudflareRay: response.headers.get('cf-ray') || undefined,
-        response: responseData
+        response: responseData,
+        blockingIndicators: blockingDetails.indicators
       };
 
     } catch (error) {
       const responseTime = Date.now() - startTime;
+      const isNetworkError = this.isNetworkError(error);
       
       return {
         success: false,
-        blocked: this.isNetworkError(error),
+        blocked: isNetworkError,
         statusCode: 0,
         message: 'Request failed - possibly blocked by WAF',
         timestamp: new Date().toISOString(),
         responseTime,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        blockingIndicators: {
+          statusCodeBlocked: false,
+          cloudflareServerHeader: false,
+          cloudflareRayHeader: false,
+          networkError: isNetworkError
+        }
       };
     }
   }
 
-  private isCloudflareBlocked(response: Response): boolean {
-    // Common indicators that Cloudflare WAF blocked the request
-    return (
-      response.status === 403 ||
-      response.status === 406 ||
-      response.status === 429 ||
-      response.headers.get('server')?.includes('cloudflare') === true ||
-      response.headers.get('cf-ray') !== null
-    );
+  private getBlockingDetails(response: Response): { isBlocked: boolean; indicators: any } {
+    const statusCodeBlocked = response.status === 403 || response.status === 406 || response.status === 429;
+    const cloudflareServerHeader = response.headers.get('server')?.includes('cloudflare') === true;
+    const cloudflareRayHeader = response.headers.get('cf-ray') !== null;
+    
+    const blockedStatusCodes = [];
+    if (response.status === 403) blockedStatusCodes.push(403);
+    if (response.status === 406) blockedStatusCodes.push(406);
+    if (response.status === 429) blockedStatusCodes.push(429);
+    
+    const isBlocked = statusCodeBlocked || cloudflareServerHeader || cloudflareRayHeader;
+    
+    return {
+      isBlocked,
+      indicators: {
+        statusCodeBlocked,
+        cloudflareServerHeader,
+        cloudflareRayHeader,
+        networkError: false,
+        statusCodes: blockedStatusCodes.length > 0 ? blockedStatusCodes : undefined
+      }
+    };
   }
 
   private isNetworkError(error: any): boolean {

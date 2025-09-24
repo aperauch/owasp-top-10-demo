@@ -109,6 +109,43 @@ export default function InjectionPage() {
           )}
           <div><strong>Timestamp:</strong> {new Date(result.timestamp).toLocaleString()}</div>
           
+          {/* Show detailed blocking indicators */}
+          <div className="bg-gray-50 border border-gray-200 rounded p-3 mt-3">
+            <strong className="text-gray-800">🔍 WAF Detection Analysis:</strong>
+            <div className="mt-2 space-y-1 text-xs">
+              {result.blockingIndicators ? (
+                <>
+                  <div className={`flex items-center ${result.blockingIndicators.statusCodeBlocked ? 'text-green-700' : 'text-gray-500'}`}>
+                    <span className="w-4 text-center mr-2">{result.blockingIndicators.statusCodeBlocked ? '✓' : '✗'}</span>
+                    <span>HTTP Status Code Block</span>
+                    {result.blockingIndicators.statusCodes && result.blockingIndicators.statusCodes.length > 0 && (
+                      <span className="ml-1 font-mono">({result.blockingIndicators.statusCodes.join(', ')})</span>
+                    )}
+                  </div>
+                  <div className={`flex items-center ${result.blockingIndicators.cloudflareRayHeader ? 'text-green-700' : 'text-gray-500'}`}>
+                    <span className="w-4 text-center mr-2">{result.blockingIndicators.cloudflareRayHeader ? '✓' : '✗'}</span>
+                    <span>Cloudflare Ray ID Header Present</span>
+                  </div>
+                  <div className={`flex items-center ${result.blockingIndicators.cloudflareServerHeader ? 'text-green-700' : 'text-gray-500'}`}>
+                    <span className="w-4 text-center mr-2">{result.blockingIndicators.cloudflareServerHeader ? '✓' : '✗'}</span>
+                    <span>Cloudflare Server Header Detected</span>
+                  </div>
+                  <div className={`flex items-center ${result.blockingIndicators.networkError ? 'text-green-700' : 'text-gray-500'}`}>
+                    <span className="w-4 text-center mr-2">{result.blockingIndicators.networkError ? '✓' : '✗'}</span>
+                    <span>Network Error (Connection Blocked)</span>
+                  </div>
+                  {result.error && (
+                    <div className="text-red-600 mt-2">
+                      <strong>Error Details:</strong> {result.error}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-gray-500">No detailed indicators available</div>
+              )}
+            </div>
+          </div>
+          
           {!isBlocked && (
             <div className="bg-yellow-50 border border-yellow-300 rounded p-3 mt-3">
               <strong className="text-yellow-800">⚠️ Security Risk:</strong>

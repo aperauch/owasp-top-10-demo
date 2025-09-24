@@ -25,6 +25,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script 
+          defer 
+          src="https://static.cloudflareinsights.com/beacon.min.js" 
+          data-cf-beacon='{"token": "a54488ee262b4a5481210d7f49fd864f"}'
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >

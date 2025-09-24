@@ -136,10 +136,21 @@ export default function WAFTestDashboard() {
   const getTestStats = () => {
     const results = Object.values(testResults);
     const total = results.length;
-    const blocked = results.filter(r => r.blocked || r.statusCode === 403 || r.statusCode === 406).length;
-    const passed = results.filter(r => !r.blocked && r.statusCode !== 403 && r.statusCode !== 406).length;
+    // A test is considered "blocked" (good) only if it has a blocking status code or network error
+    // Status code 200 means the request reached the server and should be considered "failed" (bad)
+    const blocked = results.filter(r => 
+      r.statusCode === 403 || 
+      r.statusCode === 406 || 
+      r.statusCode === 429 ||
+      r.statusCode === 0 || // Network error/timeout
+      (r.blocked && r.statusCode !== 200) // Blocked by WAF but not a 200 response
+    ).length;
+    const failed = results.filter(r => 
+      r.statusCode === 200 || // Request reached the server - WAF failed to block
+      (r.statusCode !== 403 && r.statusCode !== 406 && r.statusCode !== 429 && r.statusCode !== 0 && !r.blocked)
+    ).length;
     
-    return { total, blocked, passed, percentage: total > 0 ? Math.round((blocked / total) * 100) : 0 };
+    return { total, blocked, failed, percentage: total > 0 ? Math.round((blocked / total) * 100) : 0 };
   };
 
   const stats = getTestStats();
@@ -179,8 +190,8 @@ export default function WAFTestDashboard() {
             <div className="text-sm text-green-600">Blocked by WAF</div>
           </div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="text-2xl font-bold text-red-800">{stats.passed}</div>
-            <div className="text-sm text-red-600">Passed Through</div>
+            <div className="text-2xl font-bold text-red-800">{stats.failed}</div>
+            <div className="text-sm text-red-600">Failed (Not Blocked)</div>
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="text-2xl font-bold text-blue-800">{stats.percentage}%</div>
@@ -249,7 +260,15 @@ export default function WAFTestDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {suiteTests.map((test) => {
                     const result = testResults[test.name];
-                    const isBlocked = result && (result.blocked || result.statusCode === 403 || result.statusCode === 406);
+                    // A test is considered "blocked" (good) only if it has a blocking status code or network error
+                    // Status code 200 means the request reached the server and should be considered "failed" (bad)
+                    const isBlocked = result && (
+                      result.statusCode === 403 || 
+                      result.statusCode === 406 || 
+                      result.statusCode === 429 ||
+                      result.statusCode === 0 || // Network error/timeout
+                      (result.blocked && result.statusCode !== 200) // Blocked by WAF but not a 200 response
+                    );
                     
                     return (
                       <div
@@ -270,7 +289,7 @@ export default function WAFTestDashboard() {
                                 ? 'bg-green-200 text-green-800' 
                                 : 'bg-red-200 text-red-800'
                             }`}>
-                              {isBlocked ? 'BLOCKED' : 'PASSED'}
+                              {isBlocked ? 'BLOCKED' : 'FAILED'}
                             </span>
                           )}
                         </div>
@@ -314,11 +333,11 @@ export default function WAFTestDashboard() {
             </ul>
           </div>
           <div>
-            <h4 className="font-semibold text-red-800 mb-2">⚠️ Passed Requests (Review Needed)</h4>
+            <h4 className="font-semibold text-red-800 mb-2">❌ Failed Tests (WAF Bypass)</h4>
             <ul className="space-y-1 text-red-700">
-              <li>• HTTP 200 - Request reached your server</li>
-              <li>• Attack payload was not blocked</li>
-              <li>• May indicate WAF rules need adjustment</li>
+              <li>• HTTP 200 - Attack payload reached your server</li>
+              <li>• WAF failed to block malicious request</li>
+              <li>• Indicates WAF rules need adjustment</li>
               <li>• Consider enabling stricter security settings</li>
             </ul>
           </div>
